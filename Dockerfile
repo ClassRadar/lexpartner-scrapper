@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY main.py .
 
-CMD ["functions-framework", "--target=scraping_saij", "--host=0.0.0.0", "--port=8080"]
+CMD functions-framework --target=scraping_saij --host=0.0.0.0 --port=$PORT
