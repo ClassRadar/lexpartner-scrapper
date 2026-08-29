@@ -2,13 +2,14 @@ import os
 import functions_framework
 from playwright.sync_api import sync_playwright
 from playwright_stealth import stealth_sync
+from urllib.parse import urlparse
 
 CLAVE_SECRETA = os.environ.get("CLAVE_SCRAPER", "")
 
 
 @functions_framework.http
 def scraping_saij(request):
-        headers_cors = {"Access-Control-Allow-Origin": "*"}
+    headers_cors = {"Access-Control-Allow-Origin": "*"}
 
     if request.method == "OPTIONS":
         headers_cors["Access-Control-Allow-Methods"] = "POST"
@@ -20,9 +21,11 @@ def scraping_saij(request):
 
     request_json = request.get_json(silent=True)
     if not request_json or "url" not in request_json:
-        return {"error": "Falta el parámetro 'url'"}, 400
+        return {"error": "Falta el parámetro 'url'"}, 400, headers_cors
 
     target_url = request_json["url"]
+    parsed = urlparse(target_url)
+    base_url = f"{parsed.scheme}://{parsed.netloc}/"
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -37,11 +40,23 @@ def scraping_saij(request):
         stealth_sync(page)
 
         try:
-            page.goto(target_url, wait_until="networkidle", timeout=30000)
-            html_content = page.content()
+            # Visitamos el dominio real primero, como una persona,
+            # antes de pedir el JSON — evita ser el primer contacto
+            # directo a un endpoint de API, que es lo que dispara los
+            # sistemas anti-bots.
+            page.goto(base_url, wait_until="domcontentloaded", timeout=20000)
+
+            texto = page.evaluate(
+                """async (url) => {
+                    const resp = await fetch(url, { headers: { "Accept": "application/json" } });
+                    return await resp.text();
+                }""",
+                target_url,
+            )
+
             context.close()
             browser.close()
-            return {"status": "success", "html": html_content}, 200, headers_cors   
+            return {"status": "success", "html": texto}, 200, headers_cors
         except Exception as e:
             browser.close()
-            return {"status": "error", "message": str(e)}, 500, headers_cors    
+            return {"status": "error", "message": str(e)}, 500, headers_cors
