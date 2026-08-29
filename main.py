@@ -27,23 +27,20 @@ def scraping_saij(request):
     parsed = urlparse(target_url)
     base_url = f"{parsed.scheme}://{parsed.netloc}/"
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-blink-features=AutomationControlled"],
-        )
-        context = browser.new_context(
-            viewport={"width": 1280, "height": 720},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-        )
-        page = context.new_page()
-        stealth_sync(page)
+    browser = None
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-blink-features=AutomationControlled"],
+            )
+            context = browser.new_context(
+                viewport={"width": 1280, "height": 720},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+            )
+            page = context.new_page()
+            stealth_sync(page)
 
-        try:
-            # Visitamos el dominio real primero, como una persona,
-            # antes de pedir el JSON — evita ser el primer contacto
-            # directo a un endpoint de API, que es lo que dispara los
-            # sistemas anti-bots.
             page.goto(base_url, wait_until="domcontentloaded", timeout=20000)
 
             texto = page.evaluate(
@@ -57,6 +54,11 @@ def scraping_saij(request):
             context.close()
             browser.close()
             return {"status": "success", "html": texto}, 200, headers_cors
-        except Exception as e:
-            browser.close()
-            return {"status": "error", "message": str(e)}, 500, headers_cors
+
+    except Exception as e:
+        if browser is not None:
+            try:
+                browser.close()
+            except Exception:
+                pass
+        return {"status": "error", "message": str(e), "type": type(e).__name__}, 500, headers_cors
