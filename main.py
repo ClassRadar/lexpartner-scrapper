@@ -41,7 +41,7 @@ def scraping_saij(request):
             html_content = page.content()
             context.close()
             browser.close()
-            return {"status": "success", "html": html_content}, 200
+            return {"status": "success", "html": html_content}, 200, headers_cors   
         except Exception as e:
             browser.close()
-            return {"status": "error", "message": str(e)}, 500
+            return {"status": "error", "message": str(e)}, 500, headers_cors    
