@@ -8,8 +8,15 @@ CLAVE_SECRETA = os.environ.get("CLAVE_SCRAPER", "")
 
 @functions_framework.http
 def scraping_saij(request):
+        headers_cors = {"Access-Control-Allow-Origin": "*"}
+
+    if request.method == "OPTIONS":
+        headers_cors["Access-Control-Allow-Methods"] = "POST"
+        headers_cors["Access-Control-Allow-Headers"] = "Content-Type, X-Clave-Secreta"
+        return "", 204, headers_cors
+
     if request.headers.get("X-Clave-Secreta") != CLAVE_SECRETA:
-        return {"error": "No autorizado"}, 401
+        return {"error": "No autorizado"}, 401, headers_cors
 
     request_json = request.get_json(silent=True)
     if not request_json or "url" not in request_json:
