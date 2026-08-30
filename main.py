@@ -1,3 +1,4 @@
+# Forzando rebuild completo - v2
 import os
 import functions_framework
 from playwright.sync_api import sync_playwright
